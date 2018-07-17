@@ -81,6 +81,11 @@ func main() {
 	jobObj := client.ParseFromJSON(jobFile)
 	jobObj = client.AddSecurityContext(jobObj)
 	jobObj = client.AddFileMount(jobObj, tool, stageDir+tool)
+	cmds, err := util.GetImageCommand("fasthall/iperf")
+	if err != nil {
+		log.Panicln("Failed to get the original command of Docker image.")
+	}
+	jobObj = client.OverrideCommand(jobObj, tool, stageDir+tool, cmds)
 	jobObj, err = cli.CreateJob(jobObj)
 	if err != nil {
 		log.Panicln("Failed to create job.", err)

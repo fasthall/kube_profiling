@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -76,6 +77,19 @@ func AddFileMount(jobObj *batchv1.Job, tool, path string) *batchv1.Job {
 			Name:      tool,
 			MountPath: path,
 		})
+	}
+	return jobObj
+}
+
+// OverrideCommand overrides the command of containers in job so that it will run profiling tool first and then original command
+func OverrideCommand(jobObj *batchv1.Job, tool, path string, originalCmds []string) *batchv1.Job {
+	containers := &jobObj.Spec.Template.Spec.Containers
+	for i := range *containers {
+		(*containers)[i].Command = []string{
+			"sh",
+			"-c",
+			fmt.Sprintf("cp %s /bin/%s && perf record -o perf.data %s && perf report -i perf.data --stdio > perf.report", path, tool, strings.Join(originalCmds, " ")),
+		}
 	}
 	return jobObj
 }
