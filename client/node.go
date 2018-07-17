@@ -82,3 +82,16 @@ func (cli *Client) GetExternalIPOfNode(node corev1.Node) (string, error) {
 	}
 	return "", fmt.Errorf("no external address found in node %s", node.Name)
 }
+
+// EnableKernelSymbols removes kernel symbols restriction
+func (cli *Client) EnableKernelSymbols(node corev1.Node) error {
+	addr, err := cli.GetExternalIPOfNode(node)
+	if err != nil {
+		return err
+	}
+	_, _, err = util.RunSSHCommand(addr, cli.sshKey, []string{"sudo", "sh", "-c", "\"echo 0 > /proc/sys/kernel/kptr_restrict\""})
+	if err != nil {
+		return err
+	}
+	return nil
+}

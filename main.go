@@ -95,6 +95,10 @@ func main() {
 					log.Println(tool, "uploaded.")
 				}
 			}
+			err = cli.EnableKernelSymbols(node)
+			if err != nil {
+				log.Printf("Failed to enables kernel symbol on node %s.\n", node.Name)
+			}
 		}
 		log.Println(tool, "are found in all nodes. Creating Kubernetes job...")
 	} else {
@@ -102,26 +106,29 @@ func main() {
 	}
 
 	log.Printf("Loading job description file %s.\n", jobFile)
-	jobObj := client.ParseFromJSON(jobFile)
+	jobObj := util.ParseFromJSON(jobFile)
 	// make the job runs in privileged mode and given SYS_ADMIN capability for perf to work properly
-	jobObj = client.AddSecurityContext(jobObj)
+	jobObj = util.AddSecurityContext(jobObj)
 	// mount the profiling tool binary from node host to pod
-	jobObj = client.AddStageDirMount(jobObj, stageDir)
+	jobObj = util.AddStageDirMount(jobObj, stageDir)
 
 	if len(jobObj.Spec.Template.Spec.Containers) == 0 {
 		log.Println("No container specified in job description.")
 		return
 	}
-	// TODO run it and inspect the image on the node to save space and eliminate the need to install Docker on the host machine
-	// 	    the following command pulls the image to the host (not the node) and check its original command by docker inspect,
-	// 	    hence it needs the host machine has Docker installed and running
-	// 	    also it takes space to pull the image to the host
-	cmds, err := util.GetImageCommand(jobObj.Spec.Template.Spec.Containers[0].Image)
+	cmds, err := util.GetJobCommand(jobObj)
 	if err != nil {
-		log.Fatalf("Failed to get the original command of Docker image %s.\n", jobObj.Spec.Template.Spec.Containers[0].Image)
+		// TODO run it and inspect the image on the node to save space and eliminate the need to install Docker on the host machine
+		// 	    the following command pulls the image to the host (not the node) and check its original command by docker inspect,
+		// 	    hence it needs the host machine has Docker installed and running
+		// 	    also it takes space to pull the image to the host
+		cmds, err = util.GetImageCommand(jobObj.Spec.Template.Spec.Containers[0].Image)
+		if err != nil {
+			log.Fatalf("Failed to get the original command of Docker image %s.\n", jobObj.Spec.Template.Spec.Containers[0].Image)
+		}
 	}
 	// override the pod command so it copies and runs profiling tool first followed by the original command
-	jobObj = client.OverrideCommand(jobObj, tool, stageDir, cmds)
+	jobObj = util.OverrideCommand(jobObj, tool, stageDir, cmds)
 	log.Printf("Creating job %s...\n", jobObj.Name)
 
 	jobObj, err = cli.CreateJob(jobObj)
