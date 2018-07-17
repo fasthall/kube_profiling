@@ -11,6 +11,7 @@ import (
 type Client struct {
 	nodeInterface clientv1.NodeInterface
 	jobInterface  typedbatchv1.JobInterface
+	podInterface  clientv1.PodInterface
 	sshKey        string
 }
 
@@ -29,6 +30,7 @@ func NewClient(kubeconfigPath, namespace, sshKey string) (*Client, error) {
 	return &Client{
 		nodeInterface: clientset.CoreV1().Nodes(),
 		jobInterface:  clientset.BatchV1().Jobs(namespace),
+		podInterface:  clientset.CoreV1().Pods(namespace),
 		sshKey:        sshKey,
 	}, nil
 }

@@ -34,8 +34,7 @@ func RunSSHCommand(addr, key string, command []string) (string, string, error) {
 
 // RunSCPCommand runs scp to copy a file to the host
 func RunSCPCommand(key, src, dst string) (string, string, error) {
-	args := []string{"-i", key, src, dst}
-	cmd := exec.Command("scp", args...)
+	cmd := exec.Command("scp", "-i", key, src, dst)
 	var bufOut bytes.Buffer
 	var bufErr bytes.Buffer
 	cmd.Stdout = &bufOut

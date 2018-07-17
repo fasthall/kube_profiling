@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"os/exec"
 	"syscall"
 
@@ -26,9 +27,22 @@ func (cli *Client) ListExternalIPs() ([]string, error) {
 	return addresses, nil
 }
 
+// ListNodes returns a list of nodes
+func (cli *Client) ListNodes() ([]corev1.Node, error) {
+	nodeList, err := cli.nodeInterface.List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return nodeList.Items, nil
+}
+
 // CheckBinary checks if the binary can be found in the host
-func (cli *Client) CheckBinary(host, path string) (bool, error) {
-	_, _, err := util.RunSSHCommand(host, cli.sshKey, []string{"which", path})
+func (cli *Client) CheckBinary(node corev1.Node, path string) (bool, error) {
+	addr, err := cli.GetExternalIPOfNode(node)
+	if err != nil {
+		return false, err
+	}
+	_, _, err = util.RunSSHCommand(addr, cli.sshKey, []string{"which", path})
 	if err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -47,10 +61,24 @@ func (cli *Client) CheckBinary(host, path string) (bool, error) {
 }
 
 // UploadBinary uploads the binary file to the host
-func (cli *Client) UploadBinary(host, src, dst string) error {
-	_, _, err := util.RunSCPCommand(cli.sshKey, src, host+":"+dst)
+func (cli *Client) UploadBinary(node corev1.Node, src, dst string) error {
+	addr, err := cli.GetExternalIPOfNode(node)
+	if err != nil {
+		return err
+	}
+	_, _, err = util.RunSCPCommand(cli.sshKey, src, addr+":"+dst)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// GetExternalIPOfNode returns the external IP of the node
+func (cli *Client) GetExternalIPOfNode(node corev1.Node) (string, error) {
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == corev1.NodeExternalIP {
+			return addr.Address, nil
+		}
+	}
+	return "", fmt.Errorf("no external address found in node %s", node.Name)
 }
